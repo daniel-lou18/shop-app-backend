@@ -1,9 +1,6 @@
 import { IsString } from 'class-validator';
 
-export class AddToWishlistDto {
-  @IsString()
-  userId: string;
-
+export class EditWishlistQuery {
   @IsString()
   productId: string;
 }

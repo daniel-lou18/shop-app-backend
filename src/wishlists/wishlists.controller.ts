@@ -1,6 +1,15 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
-import { AddToWishlistDto } from './dtos/add-to-wishlist.dto';
+import {
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { WishlistsService } from './wishlists.service';
+import { EditWishlistParams } from './dtos/EditWishlistParams';
+import { EditWishlistQuery } from './dtos/EditWishlistQuery';
 
 @Controller('wishlists')
 export class WishlistsController {
@@ -11,8 +20,40 @@ export class WishlistsController {
     return this.wishlistsService.getAllWishlists();
   }
 
-  @Post()
-  addToWishlist(@Body() body: AddToWishlistDto) {
-    this.wishlistsService.addToWishlist(body.userId, body.productId);
+  @Get('/:userId')
+  async getWishlist(@Param() params: EditWishlistParams) {
+    const wishlist = await this.wishlistsService.getWishlist(params.userId);
+
+    if (!wishlist) {
+      throw new NotFoundException(
+        "Nous n'avons pas trouvé de liste appartenant à cet utilisateur",
+      );
+    }
+
+    return wishlist;
+  }
+
+  @Post('/:userId')
+  addToWishlist(
+    @Param() params: EditWishlistParams,
+    @Query() query: EditWishlistQuery,
+  ) {
+    return this.wishlistsService.addToWishlist(params.userId, query.productId);
+  }
+
+  @Delete('/:userId')
+  deleteFromWishlist(
+    @Param() params: EditWishlistParams,
+    @Query() query: EditWishlistQuery,
+  ) {
+    return this.wishlistsService.deleteFromWishlist(
+      params.userId,
+      query.productId,
+    );
+  }
+
+  @Delete('clear')
+  clearAllWishlists() {
+    return this.wishlistsService.clearAllWishlists();
   }
 }
