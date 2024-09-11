@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Wishlist } from './wishlist.entity';
+import { WishlistResponse } from './types/wishlist';
 
 @Injectable()
 export class WishlistsService {
@@ -11,8 +12,9 @@ export class WishlistsService {
     return this.repo.find();
   }
 
-  getWishlist(userId: string) {
-    return this.repo.findOneBy({ userId });
+  async getWishlist(userId: string): Promise<WishlistResponse> {
+    const wishlist = await this.repo.findOneBy({ userId });
+    return { ...wishlist, productIds: JSON.parse(wishlist.productIds) };
   }
 
   async addToWishlist(userId: string, productId: string) {
@@ -43,16 +45,17 @@ export class WishlistsService {
     });
   }
 
-  private createWishlist(userId: string, productId: string) {
+  private async createWishlist(userId: string, productId: string) {
     const wishlist = this.repo.create({
       userId,
       productIds: JSON.stringify([productId]),
     });
 
-    return this.repo.save(wishlist);
+    const result = await this.repo.save(wishlist);
+    return { ...result, productIds: JSON.parse(result.productIds) };
   }
 
-  private insertIntoWishlist(wishlist: Wishlist, productId: string) {
+  private insertIntoWishlist(wishlist: WishlistResponse, productId: string) {
     const arrayMethod = (productIds: string[], productId: string) => [
       ...productIds,
       productId,
@@ -65,8 +68,8 @@ export class WishlistsService {
     });
   }
 
-  private editWishlist(
-    wishlist: Wishlist,
+  private async editWishlist(
+    wishlist: WishlistResponse,
     productId: string,
     options: {
       arrayMethod: (productIds: string[], productId: string) => string[];
@@ -74,15 +77,23 @@ export class WishlistsService {
       errorMessage: string;
     },
   ) {
-    const productIds: string[] = JSON.parse(wishlist.productIds);
+    const productIds: string[] = wishlist.productIds;
     const condition =
       (options.type === 'doesNotInclude' && !productIds.includes(productId)) ||
       (options.type === 'includes' && productIds.includes(productId));
 
     if (condition) {
       const updatedProductIds = options.arrayMethod(productIds, productId);
-      wishlist.productIds = JSON.stringify(updatedProductIds);
-      return this.repo.save(wishlist);
+      const updatedWishlist = {
+        ...wishlist,
+        productIds: updatedProductIds,
+      };
+      const updatedWishlistSerializedItem = this.repo.create({
+        ...updatedWishlist,
+        productIds: JSON.stringify(updatedWishlist.productIds),
+      });
+      await this.repo.save(updatedWishlistSerializedItem);
+      return { updatedWishlist };
     } else {
       throw new NotFoundException(options.errorMessage);
     }
